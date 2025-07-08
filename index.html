@@ -37,7 +37,8 @@
 
   <script>
     const tokens = ['AB', 'OL', 'LA', 'RDO', 'RWA', 'BDXN', 'ELDE', 'TGT', 'VELO', 'ROAM', 'PUNDIAI'];
-    const baseUrl = 'https://www.binance.com/bapi/asset/v1/public/alpha/project/detail?projectCode=';
+    const proxy = 'https://cors-anywhere.herokuapp.com/';
+const baseUrl = proxy + 'https://www.binance.com/bapi/asset/v1/public/alpha/project/detail?projectCode=';
     const checkInterval = 5 * 60 * 1000;
     const thresholdPercent = 1;
     const tokenState = {};
