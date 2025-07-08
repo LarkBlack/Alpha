@@ -1,0 +1,123 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Отслеживание роста цены токенов Binance Alpha</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f6f6f6; }
+    table { border-collapse: collapse; width: 100%; background: white; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+    th { background: #f0f0f0; }
+    button { padding: 10px 20px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+    .up { color: green; font-weight: bold; }
+    .same { color: gray; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h1>Отслеживание роста цены токенов Binance Alpha</h1>
+
+  <button id="toggleButton">▶ Начать отслеживание</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Токен</th>
+        <th>Текущая цена (USDT)</th>
+        <th>Предыдущая цена</th>
+        <th>Изменение</th>
+        <th>Статус</th>
+      </tr>
+    </thead>
+    <tbody id="priceTable"></tbody>
+  </table>
+
+  <audio id="alertSound" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" preload="auto"></audio>
+
+  <script>
+    const tokens = ['AB', 'OL', 'LA', 'RDO', 'RWA', 'BDXN', 'ELDE', 'TGT', 'VELO', 'ROAM', 'PUNDIAI'];
+    const baseUrl = 'https://www.binance.com/bapi/asset/v1/public/alpha/project/detail?projectCode=';
+    const checkInterval = 5 * 60 * 1000;
+    const thresholdPercent = 1;
+    const tokenState = {};
+    let intervalId = null;
+
+    const table = document.getElementById('priceTable');
+    const button = document.getElementById('toggleButton');
+    const alertSound = document.getElementById('alertSound');
+
+    function createOrUpdateRow(token, current, previous, changeText, status, statusClass) {
+      let row = document.getElementById('row-' + token);
+      if (!row) {
+        row = document.createElement('tr');
+        row.id = 'row-' + token;
+        row.innerHTML = `<td>${token}</td><td></td><td></td><td></td><td></td>`;
+        table.appendChild(row);
+      }
+      const cells = row.getElementsByTagName('td');
+      cells[1].textContent = current ?? '-';
+      cells[2].textContent = previous ?? '-';
+      cells[3].textContent = changeText ?? '-';
+      cells[4].textContent = status ?? '-';
+      cells[4].className = statusClass;
+    }
+
+    async function fetchPrice(token) {
+      try {
+        const res = await fetch(baseUrl + token);
+        const data = await res.json();
+        const price = parseFloat(data?.data?.price?.priceInUsd);
+        if (isNaN(price)) throw new Error('Цена не найдена');
+        return price;
+      } catch (e) {
+        console.error(`Ошибка получения ${token}:`, e);
+        createOrUpdateRow(token, '-', '-', '-', 'ошибка', 'error');
+        return null;
+      }
+    }
+
+    async function checkPrices() {
+      for (const token of tokens) {
+        const current = await fetchPrice(token);
+        if (current === null) continue;
+
+        const previous = tokenState[token];
+        let change = '-';
+        let status = '-';
+        let cls = 'same';
+
+        if (previous !== undefined) {
+          const diff = ((current - previous) / previous) * 100;
+          change = diff.toFixed(2) + '%';
+          if (diff >= thresholdPercent) {
+            status = '🔔 рост';
+            cls = 'up';
+            tokenState[token] = current;
+            alertSound.play();
+          } else {
+            status = '—';
+            cls = 'same';
+          }
+        } else {
+          tokenState[token] = current;
+        }
+
+        createOrUpdateRow(token, current.toFixed(6), previous?.toFixed(6), change, status, cls);
+      }
+    }
+
+    button.addEventListener('click', () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+        button.textContent = '▶ Начать отслеживание';
+      } else {
+        checkPrices();
+        intervalId = setInterval(checkPrices, checkInterval);
+        button.textContent = '⏸ Остановить отслеживание';
+      }
+    });
+  </script>
+</body>
+</html>
